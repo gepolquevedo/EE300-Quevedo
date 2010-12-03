@@ -666,7 +666,7 @@ class Tracker(object):
             return data
         l_get_size = int(float(rsize)*(len_l)/(len_l+len_s)) 
         cache = self.cached.setdefault(infohash,[None,None,None])[return_type] #one return type retrieved
-        if cache: #checks if cache must be refreshed
+       	if cache: #checks if cache must be refreshed
             if cache[0] + self.config['min_time_between_cache_refreshes'] < time():
                 cache = None
             else:
@@ -693,13 +693,17 @@ class Tracker(object):
         if len(cache[1]) < l_get_size:
 
             #add outsider peers
-	    #counter = 0
-	    #while len(cache[1]) < l_get_size:
-	    #	randgroup = randint(1,255)
-	    #	cache[1].extend(self.becache[randgroup][return_type][0].values+vv[return_type]
-	    #	counter += 1
-	    #	if counter >= 255:
-	    #		break
+	    x = []
+	    for n in range(255):
+	    	x.append(n)
+	    shuffle(x)
+	    counter = 0
+	    while len(cache[1]) < l_get_size:
+	    	randgroup = randint(1,255)
+	    	cache[1].extend(self.becache[randgroup][return_type][0].values+vv[return_type]
+	    	counter += 1
+	    	if counter >= 255:
+	    		break
         if len(cache[1]) < l_get_size:
 	    peerdata = cache[1]
             if not is_seed:
