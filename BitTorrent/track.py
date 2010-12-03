@@ -260,8 +260,10 @@ class Tracker(object):
             except:
                 print _("**warning** specified favicon file -- %s -- does not exist.") % favicon
         self.rawserver = rawserver
-        self.cached = {}    # format: infohash: [[time1, l1, s1], [time2, l2, s2], [time3, l3, s3]]
-        self.cached_t = {}  # format: infohash: [time, cache]
+        self.cached = [{}]    # format: infohash: [[time1, l1, s1], [time2, l2, s2], [time3, l3, s3]]
+        for n in range(255):
+		self.cached.append({})
+	self.cached_t = {}  # format: infohash: [time, cache]
         self.times = {}
         self.state = {}
         self.seedcount = {}
