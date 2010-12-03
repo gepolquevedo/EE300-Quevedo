@@ -1,0 +1,167 @@
+import os
+import time
+import stat
+import re
+import sys
+import glob
+
+CACHE_DIR = '/home/gepol/cache/'
+
+class Cache_handler(object):
+	def __init__(self,filepath = None,upload_only = False):
+		self.config_file = None
+		self.config_filename = '.cachestatus'
+		self.file_entries = None
+		self.filenames = []
+		self.file_sizes = []
+		self.file_last_accessed = []
+		self.currentfile_size = None
+		if filepath is not None:		
+			self.currentfile_name = filepath[0]
+		self.cache_size = None	
+		self.upload_only = upload_only
+	
+	def _fill_up(self):
+		for filename,length in self.storage.unallocated.iteritems():
+			truelength = os.path.getsize(filename)
+			self.filenames.append(filename)
+			self.file_sizes.append(truelength)
+			self.file_last_access.append(time.time())
+			#filestat = os.stat(filename)
+			#self.file_last_accessed
+			
+	def _parse_lines(self):
+		if len(self.file_entries) == 0:
+			#self._fill_up()
+			self._add_new_file()
+			return
+		for entry in self.file_entries:		
+			m = re.findall('[a-zA-Z0-9\.\/\ \&]*',entry)
+			self.filenames.append(m[0])
+			self.file_sizes.append(int(m[2]))
+			self.file_last_accessed.append(float(m[4]))
+			
+				
+	
+	def _read(self):
+		try:
+			self.config_file = open(self.config_filename, 'rw')
+			self.file_entries = self.config_file.readlines()
+			self._parse_lines()	
+			self.config_file.close() #this can be removed
+		except IOError:
+			self.config_file = open(self.config_filename, 'w')		
+			self.config_file.close() #this can be removed		
+		#erase file then write contents of list to file
+		
+	def _sort(self):
+		print self.file_last_accessed
+		for y in range(len(self.file_last_accessed)-1):		
+			for x in range(0,len(self.file_last_accessed)-y-1):
+				if self.file_last_accessed[x] > self.file_last_accessed[x+1]:
+					temp = self.file_last_accessed[x+1]
+					self.file_last_accessed[x+1] = self.file_last_accessed[x]
+					self.file_last_accessed[x] = temp
+							
+					temp = self.filenames[x+1]
+					self.filenames[x+1] = self.filenames[x]
+					self.filenames[x] = temp
+							
+					temp = self.file_sizes[x+1]
+					self.file_sizes[x+1] = self.file_sizes[x]
+					self.file_sizes[x] = temp
+				print self.file_last_accessed
+				
+
+		
+
+	def _save_file(self):
+		try:
+			self.config_file = open(self.config_filename, 'w')
+		except IOError:
+			print "cache config file missing"	
+			sys.exit(1)
+		self.config_file.write('')
+		self.config_file.close()	
+		try:
+			self.config_file = open(self.config_filename, 'w')
+		except IOError:
+			print "cache config file missing"
+			sys.exit(1)
+		for x in range(len(self.filenames)):
+			self.config_file.write(self.filenames[x]+','+str(self.file_sizes[x])+','+str(self.file_last_accessed[x])+'\n')
+		self.config_file.close()			
+
+	def _add_new_file(self):
+		#check if file is still the same size as current size
+		#file already exists because of Storage object instatiation			
+		
+		self.currentfile_size = os.path.getsize(self.currentfile_name)
+		time_last_accessed = time.time()
+		
+		if os.path.isfile(self.currentfile_name):
+			if self.currentfile_name in self.filenames:
+				index = self.filenames.index(self.currentfile_name)
+				self.file_sizes[index] = self.currentfile_size
+				self.file_last_accessed[index] = time_last_accessed
+			else:
+				self.filenames.append(self.currentfile_name)
+				self.file_sizes.append(int(self.currentfile_size))
+				self.file_last_accessed.append(float(time_last_accessed))
+			
+
+	def generate_cache_from_folder(self):
+		#utility method for filling up .cachestatus based on cache folder contents
+		files = glob.glob(CACHE_DIR+'*')
+		for item in files:
+			self.filenames.append(item)
+			self.file_sizes.append(os.path.getsize(item))
+			self.file_last_accessed.append(os.path.getatime(item))
+			print item
+		self._sort()					
+		self._save_file()
+	
+	def _update_time(self):
+		for filename in self.filenames:
+			index = self.filenames.index(filename)
+			self.file_last_accessed[index] = os.path.getatime(filename)	
+
+	def _cleanup(self):
+		self.filenames = []
+		self.file_sizes = []
+		self.file_last_accessed =[]	
+	
+	def update_cache(self):
+		self._read()		
+		#after reading, get the new file being downloaded, if any
+		if not self.upload_only:
+			self._add_new_file()
+		#then insert to the list, delete last file if #of allowed movies is exceeded
+		#update timestamps
+		#for filename in self.filenames:
+		#	print 'file is',filename
+		#for size in self.file_sizes:
+		#	print 'size is',int(size)
+		#for time in self.file_last_accessed:
+		#	print 'last accessed',float(time)		
+		self._update_time()		
+		#then sort the list
+		self._sort()
+		#erase the file
+		#self._erase_file()
+		#write to file
+		#close file		
+		self._save_file()
+		#reset lists
+		self._cleanup()
+
+	def insert(self):
+		pass
+	def delete(self,filename):
+		pass		
+	def get_cache_size(self):
+		pass
+	def save_file(self):
+		pass
+		#erase contents first, open again to append. write
+	
