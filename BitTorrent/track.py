@@ -692,38 +692,48 @@ class Tracker(object):
                         pass
 	
 
-        if len(cache[1]) < l_get_size:
-	#i can control the peerlist from this section
+        if len(cache[1]) < l_get_size and self.config['strict_locality']>0:
+	
 	     print 'cache length',len(cache[1])
 	     print 'leecher list',l_get_size
-        #    #add outsider peers
+       
 	     x = []
 	     for n in range(255):
 	    	x.append(n)
 	     shuffle(x)
 	     counter = 0
 	     added = 0
+	     excess_l = 0
+	     excess_s = 0
 	     while len(cache[1]) < l_get_size:
-	       	try:
-        		bc1 = self.becache[x[counter]].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
-			if bc1[return_type][0].values(): 
-				added += 1
-				cache[1].extend(bc1[return_type][0].values()+vv[return_type])
-	    	except KeyError:
-			print 'KeyErrror'
 	    	try:
         		bc1 = self.becache[x[counter]].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
 			if bc1[return_type][1].values(): 
-				added += 1
+				added += len(bc1[return_type][1].values())
 				cache[2].extend(bc1[return_type][1].values())
+				if self.config['strict_locality'] <= added:
+					excess_s += added - self.config['strict_locality']			
+					break
 		except KeyError:
+			print 'KeyErrror'
+	       	try:
+        		bc1 = self.becache[x[counter]].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
+			if bc1[return_type][0].values(): 
+				added += len(bc1[return_type][0].values())
+				cache[1].extend(bc1[return_type][0].values()+vv[return_type])
+				if self.config['strict_locality'] <= added:
+					excess_l += added - self.config['strict_locality']			
+					break
+	    	except KeyError:
 			print 'KeyErrror'
 	 	counter += 1
 	    	if counter >= 255:
 	     		break
-		if self.config['strict_locality']==2 and added >= 1:
-			break
     
+	#trim here for excess 'outsider' seeders/leechers
+	del cache[2][-excess_s:]
+	del cache[1][-excess_l:]
+
 	if len(cache[1]) < l_get_size:
 	    peerdata = cache[1]
             if not is_seed:
