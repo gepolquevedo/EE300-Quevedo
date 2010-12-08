@@ -65,7 +65,7 @@ defaults = [
     ('min_time_between_log_flushes', 3.0,
      _("minimum time it must have been since the last flush to do "
        "another one")),
-    ('min_time_between_cache_refreshes', 600.0,
+    ('min_time_between_cache_refreshes', 60.0,
      _("minimum time in seconds before a cache is considered stale "
        "and is flushed")),
     ('allowed_dir', '',
@@ -667,7 +667,7 @@ class Tracker(object):
             data['peers'] = []
             return data
         l_get_size = int(float(rsize)*(len_l)/(len_l+len_s)) 
-        cache = self.cached.setdefault(infohash,[None,None,None])[return_type] #one return type retrieved
+        cache = self.cached[group].setdefault(infohash,[None,None,None])[return_type] #one return type retrieved
        	if cache: #checks if cache must be refreshed
             if cache[0] + self.config['min_time_between_cache_refreshes'] < time():
                 cache = None
@@ -676,37 +676,55 @@ class Tracker(object):
                      or len(cache[1]) < l_get_size or not cache[1] ):
                         cache = None
         #much modification from this point                
+        vv = [[],[],[]]
 	if not cache:
-            vv = [[],[],[]]
             cache = [ time(),
                       bc[return_type][0].values()+vv[return_type],
                       bc[return_type][1].values() ]
             shuffle(cache[1])
             shuffle(cache[2])
-            self.cached[infohash][return_type] = cache
-            for rr in xrange(len(self.cached[infohash])):
+            self.cached[group][infohash][return_type] = cache
+            for rr in xrange(len(self.cached[group][infohash])):
                 if rr != return_type:
                     try:
-                        self.cached[infohash][rr][1].extend(vv[rr])
+                        self.cached[group][infohash][rr][1].extend(vv[rr])
                     except:
                         pass
 	
 
         if len(cache[1]) < l_get_size:
-
-            #add outsider peers
-	    x = []
-	    for n in range(255):
+	#i can control the peerlist from this section
+	     print 'cache length',len(cache[1])
+	     print 'leecher list',l_get_size
+        #    #add outsider peers
+	     x = []
+	     for n in range(255):
 	    	x.append(n)
-	    shuffle(x)
-	    counter = 0
-	    while len(cache[1]) < l_get_size:
-	    	randgroup = randint(1,255)
-	    	cache[1].extend(self.becache[randgroup][return_type][0].values+vv[return_type]
-	    	counter += 1
+	     shuffle(x)
+	     counter = 0
+	     added = 0
+	     while len(cache[1]) < l_get_size:
+	       	try:
+        		bc1 = self.becache[x[counter]].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
+			if bc1[return_type][0].values(): 
+				added += 1
+				cache[1].extend(bc1[return_type][0].values()+vv[return_type])
+	    	except KeyError:
+			print 'KeyErrror'
+	    	try:
+        		bc1 = self.becache[x[counter]].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
+			if bc1[return_type][1].values(): 
+				added += 1
+				cache[2].extend(bc1[return_type][1].values())
+		except KeyError:
+			print 'KeyErrror'
+	 	counter += 1
 	    	if counter >= 255:
-	    		break
-        if len(cache[1]) < l_get_size:
+	     		break
+		if self.config['strict_locality']==2 and added >= 1:
+			break
+    
+	if len(cache[1]) < l_get_size:
 	    peerdata = cache[1]
             if not is_seed:
                 peerdata.extend(cache[2])
@@ -850,9 +868,12 @@ class Tracker(object):
         h.close()
 
     def _get_peergroup(self,ip,infohash):
-#        self.table format : [group1, group2,...]
+        #self.table format : [group1, group2,...]
         
-        group = int(ip.split('.')[3])
+	if self.config['strict_locality'] == -1:
+               return self.becache[1].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]]),1
+
+	group = int(ip.split('.')[3])
         #return self.becache[int(n)].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
         return self.becache[group].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]]),group
         
