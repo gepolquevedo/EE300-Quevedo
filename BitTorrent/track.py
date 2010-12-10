@@ -244,6 +244,7 @@ class Tracker(object):
         self.favicon = None
         self.iptable = []
 	self.sourcelist = []        
+	self.groups = []
 
         #inserted code
         table = open('iptables', 'r')
@@ -557,6 +558,7 @@ class Tracker(object):
             auth = True
 
         if params('numwant') is not None:
+	    print params('numwant')
             rsize = min(int(params('numwant')), self.max_give)
         else:
             rsize = self.response_size
@@ -660,11 +662,12 @@ class Tracker(object):
         #bc = self.becache[132].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
         bc,group = self._get_peergroup(ip,infohash)
         self._add_seed(group)
-
+	#note: len_l and len_s are for the local ip group only
 	len_l = len(bc[0][0])
         len_s = len(bc[0][1])
         if not (len_l+len_s):   # caches are empty!
-            data['peers'] = []
+            print 'empty'
+	    data['peers'] = []
             return data
         l_get_size = int(float(rsize)*(len_l)/(len_l+len_s)) 
         cache = self.cached[group].setdefault(infohash,[None,None,None])[return_type] #one return type retrieved
@@ -675,7 +678,7 @@ class Tracker(object):
                 if ( (is_seed and len(cache[1]) < rsize)
                      or len(cache[1]) < l_get_size or not cache[1] ):
                         cache = None
-        #much modification from this point                
+       
         vv = [[],[],[]]
 	if not cache:
             cache = [ time(),
@@ -692,10 +695,12 @@ class Tracker(object):
                         pass
 	
 
+	excess_l = 0
+	excess_s = 0
+	print 'cache length',len(cache[1])
+	print 'leecher list',l_get_size
         if len(cache[1]) < l_get_size and self.config['strict_locality']>0:
 	
-	     print 'cache length',len(cache[1])
-	     print 'leecher list',l_get_size
        
 	     x = []
 	     for n in range(255):
@@ -703,15 +708,15 @@ class Tracker(object):
 	     shuffle(x)
 	     counter = 0
 	     added = 0
-	     excess_l = 0
-	     excess_s = 0
 	     while len(cache[1]) < l_get_size:
 	    	try:
         		bc1 = self.becache[x[counter]].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
 			if bc1[return_type][1].values(): 
 				added += len(bc1[return_type][1].values())
+				print 'added', added
 				cache[2].extend(bc1[return_type][1].values())
 				if self.config['strict_locality'] <= added:
+					print 'excess'
 					excess_s += added - self.config['strict_locality']			
 					break
 		except KeyError:
@@ -731,8 +736,8 @@ class Tracker(object):
 	     		break
     
 	#trim here for excess 'outsider' seeders/leechers
-	del cache[2][-excess_s:]
-	del cache[1][-excess_l:]
+	if excess_s > 0: del cache[2][-excess_s:]
+	if excess_l > 0: del cache[1][-excess_l:]
 
 	if len(cache[1]) < l_get_size:
 	    peerdata = cache[1]
@@ -879,11 +884,19 @@ class Tracker(object):
 
     def _get_peergroup(self,ip,infohash):
         #self.table format : [group1, group2,...]
-        
+	       
+ 
 	if self.config['strict_locality'] == -1:
                return self.becache[1].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]]),1
 
 	group = int(ip.split('.')[3])
+	try:
+		x = self.groups.index(group)
+	except ValueError:
+		self.groups.append(group)
+	print "groups are", self.groups		
+	print group, "just made a request"
+
         #return self.becache[int(n)].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]])
         return self.becache[group].setdefault(infohash,[[{}, {}], [{}, {}], [{}, {}]]),group
         
