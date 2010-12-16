@@ -57,7 +57,7 @@ defaults = [
        "client does not specify a number")),
     ('timeout_check_interval', 5,
      _("time to wait between checking if any connections have timed out")),
-    ('nat_check', 3, 
+    ('nat_check', 0, 
      _("how many times to check if a downloader is behind a NAT "
        "(0 = don't check)")),
     ('log_nat_checks', 0,
@@ -363,7 +363,7 @@ class Tracker(object):
         self.uq_broken = unquote('+') != ' '
         self.keep_dead = config['keep_dead']
 
-    def allow_local_override(self, ip, given_ip):
+    def allow_local_override(self, ip, given_ip): 
         return is_valid_ipv4(given_ip) and (
             not self.only_local_override_ip or is_local_ip(ip) )
 
@@ -527,7 +527,9 @@ class Tracker(object):
         self.completed.setdefault(infohash, 0)
         self.seedcount.setdefault(infohash, 0)
 
-        def params(key, default = None, l = paramslist):
+
+
+	def params(key, default = None, l = paramslist):
             if l.has_key(key):
                 return l[key][0]
             return default
@@ -548,10 +550,12 @@ class Tracker(object):
         mykey = params('key')
         auth = not peer or peer.get('key', -1) == mykey or peer.get('ip') == ip
 
-        gip = params('ip')
-        local_override = gip and self.allow_local_override(ip, gip)
+	gip = params('ip')
+	#local_override = gip and self.allow_local_override(ip, gip)
+	local_override = 1 #cheating local override for our experiments
         if local_override:
-            ip1 = gip
+            #ip1 = gip
+	     ip1 = ip # cheating ip address. ip not provided from request
         else:
             ip1 = ip
         if not auth and local_override and self.only_local_override_ip:
@@ -762,11 +766,11 @@ class Tracker(object):
 
     def get(self, connection, path, headers):
         ip = connection.get_ip()
-
+	print 'ip is', ip
         nip = get_forwarded_ip(headers)
         if nip and not self.only_local_override_ip:
             ip = nip
-
+	print 'ip now is', ip
         paramslist = {}
         def params(key, default = None, l = paramslist):
             if l.has_key(key):
@@ -832,7 +836,6 @@ class Tracker(object):
     def natcheckOK(self, infohash, peerid, ip, port, not_seed):
 	print self.sourcelist
         for source in self.sourcelist:
-	    #print 'source',source
 	    source = source.rstrip()
             if source == ip and not not_seed:
                 self.onlinesources[infohash]= {'peer id':peerid,'ip':ip, 'port':port, 'not seed': 0}
@@ -845,6 +848,10 @@ class Tracker(object):
                                               'peer id': peerid}))
         bc[1][not not_seed][peerid] = Bencached(bencode({'ip': ip, 'port': port}))
         bc[2][not not_seed][peerid] = compact_peer_info(ip, port)
+
+	#check length
+	print "length leechers", len(bc[0][0])
+	print "length seeders", len(bc[0][1])
 
     def natchecklog(self, peerid, ip, port, result):
         year, month, day, hour, minute, second, a, b, c = localtime(time())
@@ -940,6 +947,7 @@ class Tracker(object):
         self.state['allowed_dir_files'] = self.allowed_dir_files
 
     def delete_peer(self, infohash, peerid):
+    	print 'delete method invoked'
         dls = self.downloads[infohash]
         peer = dls[peerid]
         if not peer['left']:
